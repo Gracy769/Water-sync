@@ -1,0 +1,5 @@
+{
+  "name": "AquaPulse",
+  "description": "Real-time water level, pH monitoring, and motor status with historical data visualization for ESP32/Arduino systems.",
+  "requestFramePermissions": []
+}

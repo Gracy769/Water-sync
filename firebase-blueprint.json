@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "Reading": {
+      "title": "Sensor Reading",
+      "description": "A single data point from the water monitoring sensors.",
+      "type": "object",
+      "properties": {
+        "ph": { "type": "number", "description": "The pH level of the water." },
+        "waterLevel": { "type": "number", "description": "The water level percentage (0-100)." },
+        "motorOn": { "type": "boolean", "description": "Whether the motor is currently running." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the reading was taken." }
+      },
+      "required": ["ph", "waterLevel", "motorOn", "timestamp"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "Important contact information for water-related issues.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the person or department." },
+        "role": { "type": "string", "description": "Their role or title." },
+        "phone": { "type": "string", "description": "Contact phone number." },
+        "email": { "type": "string", "description": "Contact email address." }
+      },
+      "required": ["name", "role", "phone"]
+    }
+  },
+  "firestore": {
+    "/readings/{readingId}": {
+      "schema": "Reading",
+      "description": "Historical sensor data."
+    },
+    "/contacts/{contactId}": {
+      "schema": "Contact",
+      "description": "Important contacts list."
+    }
+  }
+}

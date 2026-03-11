@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Water Tank Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            text-align: center;
+            padding: 50px;
+        }
+        .dashboard {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 250px;
+        }
+        .value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #007bff;
+        }
+        .status-on { color: #28a745; }
+        .status-off { color: #dc3545; }
+        .warning { color: #dc3545; font-size: 0.9em; font-weight: bold; }
+        footer {
+            margin-top: 50px;
+            color: #777;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Smart Water Tank Monitor</h1>
+    
+    <div class="dashboard">
+        <div class="card">
+            <h3>Water Level</h3>
+            <div class="value" id="waterLevel">--%</div>
+            <div id="waterWarning" class="warning"></div>
+        </div>
+
+        <div class="card">
+            <h3>Water pH</h3>
+            <div class="value" id="phValue">--</div>
+            <div id="phWarning" class="warning"></div>
+        </div>
+
+        <div class="card">
+            <h3>Pump Motor</h3>
+            <div class="value" id="motorStatus">--</div>
+        </div>
+    </div>
+
+    <footer>
+        System maintained by Shouradeep Nag | Reg: 25BEE1121
+    </footer>
+
+    <script>
+        // Your Cloud Run API Endpoint
+        const API_URL = "/api/sensor-data";
+
+        async function fetchSensorData() {
+            try {
+                // Fetch the latest data from your backend
+                const response = await fetch(API_URL);
+                const data = await response.json();
+
+                // Update Water Level
+                document.getElementById('waterLevel').innerText = data.waterLevel + "%";
+                if (data.waterLevel >= 100) {
+                    document.getElementById('waterWarning').innerText = "TANK FULL";
+                } else {
+                    document.getElementById('waterWarning').innerText = "";
+                }
+
+                // Update pH Value
+                document.getElementById('phValue').innerText = parseFloat(data.ph).toFixed(1);
+                if (data.ph < 6.5 || data.ph > 8.5) {
+                    document.getElementById('phWarning').innerText = "UNSAFE pH LEVEL";
+                    document.getElementById('phValue').style.color = "#dc3545"; // Red
+                } else {
+                    document.getElementById('phWarning').innerText = "pH Normal";
+                    document.getElementById('phValue').style.color = "#28a745"; // Green
+                }
+
+                // Update Motor Status
+                const motorEl = document.getElementById('motorStatus');
+                if (data.motorOn) {
+                    motorEl.innerText = "ON";
+                    motorEl.className = "value status-on";
+                } else {
+                    motorEl.innerText = "OFF";
+                    motorEl.className = "value status-off";
+                }
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                document.getElementById('waterWarning').innerText = "System Offline - Cannot reach server";
+            }
+        }
+
+        // Fetch immediately when the page loads
+        fetchSensorData();
+
+        // Continue fetching new data every 5 seconds (5000 milliseconds)
+        setInterval(fetchSensorData, 5000);
+    </script>
+</body>
+</html>
