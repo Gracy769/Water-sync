@@ -22,7 +22,9 @@ import {
   Cpu,
   Copy,
   Check,
-  Code2
+  Code2,
+  History,
+  Calendar
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -45,7 +47,9 @@ import {
   query, 
   orderBy, 
   limit, 
-  Timestamp 
+  Timestamp,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { 
   signInWithPopup, 
@@ -55,7 +59,7 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { db, auth } from './firebase';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'motion/react';
@@ -87,7 +91,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [readings, setReadings] = useState<Reading[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analysis' | 'contacts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analysis' | 'contacts' | 'history'>('dashboard');
   const [analysisType, setAnalysisType] = useState<'general' | 'water-level' | 'dry-run' | 'ph-safety' | 'profile'>('general');
   const [aiAdvice, setAiAdvice] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -95,6 +99,10 @@ export default function App() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [historyStartDate, setHistoryStartDate] = useState<string>(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
+  const [historyEndDate, setHistoryEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [historyReadings, setHistoryReadings] = useState<Reading[]>([]);
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
 
   const [contacts, setContacts] = useState<Contact[]>([
     { id: '1', name: 'Municipal Corporation', role: 'Water Supply Dept', phone: '+1-800-WATER-HELP', email: 'support@municipal.gov' },
@@ -280,6 +288,60 @@ export default function App() {
     }
   }, [activeTab, analysisType, readings.length]);
 
+  const fetchHistory = async () => {
+    if (isDemoMode) {
+      const start = startOfDay(new Date(historyStartDate));
+      const end = endOfDay(new Date(historyEndDate));
+      const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      
+      const mockHistory: Reading[] = Array.from({ length: Math.min(100, days * 5) }, (_, i) => {
+        const timestamp = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+        return {
+          id: `history-mock-${i}`,
+          ph: Number((6.5 + Math.random() * 1.5).toFixed(2)),
+          waterLevel: Math.floor(Math.random() * 100),
+          motorOn: Math.random() > 0.5,
+          timestamp: Timestamp.fromDate(timestamp)
+        };
+      }).sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+      
+      setHistoryReadings(mockHistory);
+      return;
+    }
+
+    if (!user) return;
+
+    setIsFetchingHistory(true);
+    try {
+      const start = startOfDay(new Date(historyStartDate));
+      const end = endOfDay(new Date(historyEndDate));
+      
+      const q = query(
+        collection(db, 'readings'),
+        where('timestamp', '>=', Timestamp.fromDate(start)),
+        where('timestamp', '<=', Timestamp.fromDate(end)),
+        orderBy('timestamp', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Reading[];
+      setHistoryReadings(data);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    } finally {
+      setIsFetchingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab, historyStartDate, historyEndDate, isDemoMode, user]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -350,6 +412,7 @@ export default function App() {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'analysis', label: 'Analysis', icon: BrainCircuit },
+    { id: 'history', label: 'History', icon: History },
     { id: 'contacts', label: 'Contacts', icon: PhoneCall },
   ];
 
@@ -785,6 +848,141 @@ export default function App() {
                       Monitoring storage tank capacity. Automated alerts trigger when levels fall below 20% to prevent dry runs.
                     </p>
                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'history' && (
+              <motion.div 
+                key="history"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="max-w-6xl mx-auto space-y-8"
+              >
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100">
+                        <History className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Historical Data</h2>
+                        <p className="text-slate-400">Review past performance and trends</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-slate-400" />
+                        <input 
+                          type="date" 
+                          value={historyStartDate}
+                          onChange={(e) => setHistoryStartDate(e.target.value)}
+                          className="bg-transparent border-none text-sm font-semibold focus:ring-0"
+                        />
+                      </div>
+                      <span className="text-slate-300">to</span>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-slate-400" />
+                        <input 
+                          type="date" 
+                          value={historyEndDate}
+                          onChange={(e) => setHistoryEndDate(e.target.value)}
+                          className="bg-transparent border-none text-sm font-semibold focus:ring-0"
+                        />
+                      </div>
+                      <button 
+                        onClick={fetchHistory}
+                        disabled={isFetchingHistory}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {isFetchingHistory ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Update
+                      </button>
+                    </div>
+                  </div>
+
+                  {historyReadings.length > 0 ? (
+                    <div className="space-y-8">
+                      <div className="h-[400px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={[...historyReadings].reverse().map(r => ({
+                            time: format(r.timestamp.toDate(), 'MMM dd, HH:mm'),
+                            ph: r.ph,
+                            level: r.waterLevel
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis 
+                              dataKey="time" 
+                              axisLine={false} 
+                              tickLine={false} 
+                              tick={{ fill: '#94a3b8', fontSize: 10 }}
+                              dy={10}
+                            />
+                            <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} domain={[0, 14]} />
+                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} domain={[0, 100]} />
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}
+                            />
+                            <Legend verticalAlign="top" height={36}/>
+                            <Area yAxisId="left" type="monotone" dataKey="ph" name="pH Level" stroke="#10b981" fill="#10b981" fillOpacity={0.05} />
+                            <Area yAxisId="right" type="monotone" dataKey="level" name="Water Level" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.05} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold">
+                            <tr>
+                              <th className="px-6 py-4">Timestamp</th>
+                              <th className="px-6 py-4">pH Level</th>
+                              <th className="px-6 py-4">Water Level</th>
+                              <th className="px-6 py-4">Motor Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {historyReadings.map((reading) => (
+                              <tr key={reading.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-4 font-medium">{format(reading.timestamp.toDate(), 'yyyy-MM-dd HH:mm:ss')}</td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "px-2 py-1 rounded-lg font-bold",
+                                    reading.ph >= 6.5 && reading.ph <= 8.5 ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
+                                  )}>
+                                    {reading.ph.toFixed(2)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                      <div className="h-full bg-blue-500" style={{ width: `${reading.waterLevel}%` }} />
+                                    </div>
+                                    <span className="font-bold">{reading.waterLevel}%</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={cn(
+                                    "px-2 py-1 rounded-lg font-bold text-xs uppercase",
+                                    reading.motorOn ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"
+                                  )}>
+                                    {reading.motorOn ? 'Running' : 'Idle'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                      <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                      <h3 className="text-lg font-bold text-slate-400">No data for this period</h3>
+                      <p className="text-slate-400 text-sm">Try selecting a different date range or check your connection.</p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
