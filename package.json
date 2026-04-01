@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
+    "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -28,6 +29,7 @@
     "react-dom": "^19.0.0",
     "recharts": "^3.8.0",
     "serverless-http": "^4.0.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "vite": "^6.2.0"
   },

@@ -16,7 +16,7 @@ import {
   setDoc,
   writeBatch
 } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
+import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 
 // Initialize Firebase client for the server
 const firebaseApp = initializeApp(firebaseConfig);
