@@ -5,30 +5,27 @@ import {
   Activity, 
   Phone, 
   Mail, 
-  User, 
-  LogOut, 
-  LogIn,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Menu,
-  LayoutDashboard,
-  BrainCircuit,
-  PhoneCall,
-  ChevronRight,
-  Sparkles,
-  RefreshCw,
-  ExternalLink,
-  Cpu,
-  Copy,
-  Check,
-  Code2,
-  History,
-  Calendar,
-  MessageSquare,
-  Send,
-  Signal,
-  Camera,
+  AlertCircle, 
+  CheckCircle2, 
+  Clock, 
+  Menu, 
+  LayoutDashboard, 
+  BrainCircuit, 
+  PhoneCall, 
+  ChevronRight, 
+  Sparkles, 
+  RefreshCw, 
+  ExternalLink, 
+  Cpu, 
+  Copy, 
+  Check, 
+  Code2, 
+  History, 
+  Calendar, 
+  MessageSquare, 
+  Send, 
+  Signal, 
+  Camera, 
   Upload
 } from 'lucide-react';
 import { 
@@ -59,14 +56,7 @@ import {
   where,
   getDocs
 } from 'firebase/firestore';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  signOut,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -106,8 +96,6 @@ interface SMSMessage {
 }
 
 export default function App() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
   const [readings, setReadings] = useState<Reading[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analysis' | 'history' | 'sms' | 'biosync' | 'assistant' | 'leak-detect'>('dashboard');
   const [analysisType, setAnalysisType] = useState<'general' | 'water-level' | 'dry-run' | 'ph-safety' | 'profile'>('general');
@@ -260,14 +248,6 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
     if (isDemoMode) {
       // Generate initial mock data for demo mode
       const now = Date.now();
@@ -281,8 +261,6 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
       setReadings(mockReadings);
       return;
     }
-
-    if (!user) return;
 
     const q = query(
       collection(db, 'readings'),
@@ -301,21 +279,7 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
     });
 
     return () => unsubscribe();
-  }, [user]);
-
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
-  };
-
-  const handleLogout = () => {
-    signOut(auth);
-    setIsDemoMode(false);
-  };
+  }, [isDemoMode]);
 
   const simulateData = async () => {
     setIsSimulating(true);
@@ -458,8 +422,6 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
       return;
     }
 
-    if (!user) return;
-
     setIsFetchingHistory(true);
     try {
       const start = startOfDay(new Date(historyStartDate));
@@ -489,7 +451,7 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
     if (activeTab === 'history') {
       fetchHistory();
     }
-  }, [activeTab, historyStartDate, historyEndDate, isDemoMode, user]);
+  }, [activeTab, historyStartDate, historyEndDate, isDemoMode]);
 
   const handleRestartSMS = () => {
     setIsRestartingSMS(true);
@@ -502,59 +464,6 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
       setIsRestartingSMS(false);
     }, 2000);
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        >
-          <Droplets className="w-12 h-12 text-blue-500" />
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!user && !isDemoMode) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full bg-white rounded-3xl shadow-xl shadow-blue-100/50 p-8 text-center border border-blue-50"
-        >
-          <div className="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200">
-            <Droplets className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">AquaPulse</h1>
-          <p className="text-slate-500 mb-8">Intelligent Water Monitoring System</p>
-          
-          <div className="space-y-4">
-            <button
-              onClick={handleLogin}
-              className="w-full py-4 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-            >
-              <LogIn className="w-5 h-5" />
-              Sign in with Google
-            </button>
-
-            <button
-              onClick={() => setIsDemoMode(true)}
-              className="w-full py-4 px-6 bg-white border-2 border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 text-slate-600 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-            >
-              <Activity className="w-5 h-5 text-blue-500" />
-              Try Demo Mode
-            </button>
-          </div>
-          
-          <p className="mt-8 text-xs text-slate-400 uppercase tracking-widest font-medium">
-            Secure Hardware Integration
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
 
   const apiUrl = `${window.location.origin}/api/sensor-data`;
   const currentReading = readings[0] || { ph: 7.0, waterLevel: 0, motorOn: false, timestamp: Timestamp.now() };
@@ -683,15 +592,9 @@ Task: Calculate the remaining water intake needed for today. Adjust the baseline
           
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-semibold">{user.displayName}</span>
-              <span className="text-xs text-slate-400">{user.email}</span>
+              <span className="text-sm font-semibold">AquaPulse User</span>
+              <span className="text-xs text-slate-400">System Monitoring Active</span>
             </div>
-            <button 
-              onClick={handleLogout}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
           </div>
         </header>
 
